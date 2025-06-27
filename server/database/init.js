@@ -1,55 +1,95 @@
 import mysql from "mysql2/promise";
+import sqlite3 from "sqlite3";
+import { fileURLToPath } from "url";
+import path from "path";
 import bcryptjs from "bcryptjs";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 let pool;
+let db;
+let useMySQL = false;
 
 export function getDatabase() {
-  return pool;
+  return useMySQL ? pool : db;
 }
 
 export async function initializeDatabase() {
+  // Try MySQL first, fallback to SQLite for development
   try {
-    // Create MySQL connection pool
-    pool = mysql.createPool({
-      host: process.env.DB_HOST || "localhost",
-      port: process.env.DB_PORT || 3306,
-      user: process.env.DB_USER || "root",
-      password: process.env.DB_PASSWORD || "",
-      database: process.env.DB_NAME || "headless_cms",
-      waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0,
-      charset: "utf8mb4",
-      timezone: "Z",
-    });
-
-    // Test connection
-    const connection = await pool.getConnection();
-    console.log("📦 Connected to MySQL database");
-    connection.release();
-
-    // Check if tables exist and create demo data if needed
-    await checkAndCreateDemoData();
-    console.log("📋 MySQL database ready");
-  } catch (error) {
-    console.error("❌ MySQL connection failed:", error.message);
-    console.log("\n💡 To fix this issue:");
-    console.log("1. Make sure MySQL is running: docker-compose up -d");
-    console.log("2. Or install MySQL manually and update .env file");
-    console.log("3. Run: npm run setup:mysql");
-    throw error;
+    await initializeMySQL();
+  } catch (mysqlError) {
+    console.log(
+      "📦 MySQL not available, falling back to SQLite for development",
+    );
+    console.log("💡 For production, set up MySQL using: npm run docker:up");
+    await initializeSQLite();
   }
+}
+
+async function initializeMySQL() {
+  // Create MySQL connection pool
+  pool = mysql.createPool({
+    host: process.env.DB_HOST || "localhost",
+    port: process.env.DB_PORT || 3306,
+    user: process.env.DB_USER || "root",
+    password: process.env.DB_PASSWORD || "",
+    database: process.env.DB_NAME || "headless_cms",
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    charset: "utf8mb4",
+    timezone: "Z",
+  });
+
+  // Test connection
+  const connection = await pool.getConnection();
+  console.log("📦 Connected to MySQL database");
+  connection.release();
+  useMySQL = true;
+
+  // Check if tables exist and create demo data if needed
+  await checkAndCreateDemoData();
+  console.log("📋 MySQL database ready");
+}
+
+async function initializeSQLite() {
+  const dbPath = path.join(__dirname, "cms.db");
+
+  return new Promise((resolve, reject) => {
+    db = new sqlite3.Database(dbPath, async (err) => {
+      if (err) {
+        console.error("Error opening SQLite database:", err);
+        reject(err);
+        return;
+      }
+      console.log("📦 Connected to SQLite database (development mode)");
+      useMySQL = false;
+
+      try {
+        await createSQLiteTables();
+        await createDemoData();
+        console.log("📋 SQLite database ready with demo data");
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
 }
 
 async function checkAndCreateDemoData() {
   try {
-    // Check if users table has data
-    const [rows] = await pool.execute("SELECT COUNT(*) as count FROM users");
+    if (useMySQL) {
+      // Check if users table has data
+      const [rows] = await pool.execute("SELECT COUNT(*) as count FROM users");
 
-    if (rows[0].count === 0) {
-      console.log("📝 Creating demo data...");
-      await createDemoData();
-      console.log("✅ Demo data created successfully");
+      if (rows[0].count === 0) {
+        console.log("📝 Creating demo data...");
+        await createDemoData();
+        console.log("✅ Demo data created successfully");
+      }
     }
   } catch (error) {
     if (error.code === "ER_NO_SUCH_TABLE") {
@@ -60,25 +100,143 @@ async function checkAndCreateDemoData() {
   }
 }
 
+async function createSQLiteTables() {
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS users (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         email TEXT UNIQUE NOT NULL,
+         password TEXT NOT NULL,
+         role TEXT DEFAULT 'editor' CHECK (role IN ('admin', 'editor', 'viewer')),
+         name TEXT NOT NULL,
+         avatar TEXT,
+         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+
+    `CREATE TABLE IF NOT EXISTS content (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         title TEXT NOT NULL,
+         slug TEXT UNIQUE NOT NULL,
+         content TEXT,
+         excerpt TEXT,
+         type TEXT DEFAULT 'post' CHECK (type IN ('post', 'page', 'article', 'banner', 'slider', 'menu', 'gallery', 'form')),
+         status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
+         featured_image TEXT,
+         meta_title TEXT,
+         meta_description TEXT,
+         tags TEXT,
+         category TEXT,
+         author_id INTEGER,
+         views INTEGER DEFAULT 0,
+         version INTEGER DEFAULT 1,
+         template TEXT DEFAULT 'default',
+         settings TEXT,
+         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+         published_at DATETIME,
+         FOREIGN KEY (author_id) REFERENCES users (id)
+      )`,
+
+    `CREATE TABLE IF NOT EXISTS modules (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL,
+         type TEXT NOT NULL CHECK (type IN ('banner', 'slider', 'menu', 'gallery', 'form', 'text', 'table', 'list')),
+         title TEXT,
+         description TEXT,
+         settings TEXT,
+         data TEXT,
+         status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+         sort_order INTEGER DEFAULT 0,
+         created_by INTEGER,
+         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+         FOREIGN KEY (created_by) REFERENCES users (id)
+      )`,
+
+    `CREATE TABLE IF NOT EXISTS module_items (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         module_id INTEGER NOT NULL,
+         type TEXT NOT NULL CHECK (type IN ('slide', 'menu_item', 'gallery_item', 'form_field', 'table_row', 'list_item', 'link')),
+         title TEXT,
+         content TEXT,
+         image_url TEXT,
+         link_url TEXT,
+         settings TEXT,
+         sort_order INTEGER DEFAULT 0,
+         status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+         FOREIGN KEY (module_id) REFERENCES modules (id) ON DELETE CASCADE
+      )`,
+
+    `CREATE TABLE IF NOT EXISTS forms (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         name TEXT NOT NULL,
+         title TEXT NOT NULL,
+         description TEXT,
+         settings TEXT,
+         status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+         created_by INTEGER,
+         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+         FOREIGN KEY (created_by) REFERENCES users (id)
+      )`,
+
+    `CREATE TABLE IF NOT EXISTS form_fields (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         form_id INTEGER NOT NULL,
+         field_type TEXT NOT NULL CHECK (field_type IN ('text', 'email', 'textarea', 'select', 'checkbox', 'radio', 'file', 'date', 'number')),
+         field_name TEXT NOT NULL,
+         field_label TEXT NOT NULL,
+         field_placeholder TEXT,
+         field_options TEXT,
+         is_required BOOLEAN DEFAULT 0,
+         sort_order INTEGER DEFAULT 0,
+         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+         FOREIGN KEY (form_id) REFERENCES forms (id) ON DELETE CASCADE
+      )`,
+  ];
+
+  for (const query of tables) {
+    await runSQLiteQuery(query);
+  }
+}
+
+function runSQLiteQuery(query, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(query, params, function (err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(this);
+      }
+    });
+  });
+}
+
 async function createDemoData() {
   const hashedPassword = await bcryptjs.hash("admin123", 10);
 
   // Insert default admin user
+  const insertIgnore = useMySQL
+    ? "INSERT IGNORE INTO"
+    : "INSERT OR IGNORE INTO";
+
   await runQuery(
     `
-      INSERT IGNORE INTO users (email, password, role, name)
+      ${insertIgnore} users (email, password, role, name)
       VALUES (?, ?, ?, ?)
    `,
     ["admin@cms.com", hashedPassword, "admin", "Admin User"],
   );
 
-  // Insert sample users
+  // Insert sample users (one by one for compatibility)
   const editorPassword = await bcryptjs.hash("editor123", 10);
   const viewerPassword = await bcryptjs.hash("viewer123", 10);
 
   await runQuery(
     `
-      INSERT IGNORE INTO users (email, password, role, name)
+      ${insertIgnore} users (email, password, role, name)
       VALUES (?, ?, ?, ?)
    `,
     ["editor@cms.com", editorPassword, "editor", "Content Editor"],
@@ -86,7 +244,7 @@ async function createDemoData() {
 
   await runQuery(
     `
-      INSERT IGNORE INTO users (email, password, role, name)
+      ${insertIgnore} users (email, password, role, name)
       VALUES (?, ?, ?, ?)
    `,
     ["viewer@cms.com", viewerPassword, "viewer", "Content Viewer"],
@@ -95,7 +253,7 @@ async function createDemoData() {
   // Insert sample modules
   await runQuery(
     `
-      INSERT IGNORE INTO modules (name, type, title, description, settings, data, created_by, sort_order)
+      ${insertIgnore} modules (name, type, title, description, settings, data, created_by, sort_order)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
    `,
     [
@@ -112,7 +270,7 @@ async function createDemoData() {
 
   await runQuery(
     `
-      INSERT IGNORE INTO modules (name, type, title, description, settings, data, created_by, sort_order)
+      ${insertIgnore} modules (name, type, title, description, settings, data, created_by, sort_order)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
    `,
     [
@@ -127,137 +285,10 @@ async function createDemoData() {
     ],
   );
 
-  await runQuery(
-    `
-      INSERT IGNORE INTO modules (name, type, title, description, settings, data, created_by, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-   `,
-    [
-      "main-menu",
-      "menu",
-      "Main Navigation",
-      "Primary navigation menu",
-      '{"layout": "horizontal", "dropdown": true, "mobile_responsive": true}',
-      "{}",
-      1,
-      2,
-    ],
-  );
-
-  await runQuery(
-    `
-      INSERT IGNORE INTO modules (name, type, title, description, settings, data, created_by, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-   `,
-    [
-      "photo-gallery",
-      "gallery",
-      "Photo Gallery",
-      "Image gallery component",
-      '{"columns": 3, "lightbox": true, "lazy_load": true, "show_captions": true}',
-      "{}",
-      1,
-      3,
-    ],
-  );
-
-  // Insert module items for banner
-  await runQuery(
-    `
-      INSERT IGNORE INTO module_items (module_id, type, title, content, image_url, link_url, settings, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-   `,
-    [
-      1,
-      "slide",
-      "Inspiring Innovation",
-      "Building the future with cutting-edge technology. Join us on our mission to create innovative solutions that make a difference in the world.",
-      "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg",
-      "/get-started",
-      '{"buttons": [{"text": "Get Started", "url": "/get-started", "style": "primary"}, {"text": "Learn More", "url": "/about", "style": "secondary"}], "alignment": "center"}',
-      0,
-    ],
-  );
-
-  // Insert module items for slider
-  await runQuery(
-    `
-      INSERT IGNORE INTO module_items (module_id, type, title, content, image_url, link_url, settings, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-   `,
-    [
-      2,
-      "slide",
-      "Title of The First Post",
-      "Subtitle: A short story of the post goes here as subtitle. Text: This content will have images and content in a nice way.",
-      "https://images.pexels.com/photos/3184298/pexels-photo-3184298.jpeg",
-      "/post/first-post",
-      '{"date": "2024-01-15"}',
-      0,
-    ],
-  );
-
-  // Insert sample forms
-  await runQuery(
-    `
-      INSERT IGNORE INTO forms (name, title, description, settings, created_by)
-      VALUES (?, ?, ?, ?, ?)
-   `,
-    [
-      "contact-form",
-      "Contact Us",
-      "Get in touch with us",
-      '{"submit_message": "Thank you for your message!", "email_notification": true, "redirect_url": "/thank-you", "email_template_id": 1}',
-      1,
-    ],
-  );
-
-  // Insert form fields
-  await runQuery(
-    `
-      INSERT IGNORE INTO form_fields (form_id, field_type, field_name, field_label, field_placeholder, field_options, is_required, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-   `,
-    [1, "text", "name", "Full Name", "Enter your name", "", true, 0],
-  );
-
-  await runQuery(
-    `
-      INSERT IGNORE INTO form_fields (form_id, field_type, field_name, field_label, field_placeholder, field_options, is_required, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-   `,
-    [1, "email", "email", "Email Address", "Enter your email", "", true, 1],
-  );
-
-  await runQuery(
-    `
-      INSERT IGNORE INTO form_fields (form_id, field_type, field_name, field_label, field_placeholder, field_options, is_required, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-   `,
-    [
-      1,
-      "select",
-      "subject",
-      "Subject",
-      "",
-      '["General Inquiry", "Support", "Business"]',
-      true,
-      2,
-    ],
-  );
-
-  await runQuery(
-    `
-      INSERT IGNORE INTO form_fields (form_id, field_type, field_name, field_label, field_placeholder, field_options, is_required, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-   `,
-    [1, "textarea", "message", "Message", "Enter your message", "", true, 3],
-  );
-
   // Insert sample content
   await runQuery(
     `
-      INSERT IGNORE INTO content (title, slug, content, excerpt, type, status, meta_title, meta_description, author_id, views)
+      ${insertIgnore} content (title, slug, content, excerpt, type, status, meta_title, meta_description, author_id, views)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
    `,
     [
@@ -274,46 +305,47 @@ async function createDemoData() {
     ],
   );
 
+  // Insert sample forms
   await runQuery(
     `
-      INSERT IGNORE INTO content (title, slug, content, excerpt, type, status, meta_title, meta_description, author_id, views)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ${insertIgnore} forms (name, title, description, settings, created_by)
+      VALUES (?, ?, ?, ?, ?)
    `,
     [
-      "About Us",
-      "about",
-      "<h1>About Our Company</h1><p>We are a technology company focused on innovation and excellence.</p>",
-      "Learn about our company and mission",
-      "page",
-      "published",
-      "About Us - Company Information",
-      "Learn about our company, mission, and values",
+      "contact-form",
+      "Contact Us",
+      "Get in touch with us",
+      '{"submit_message": "Thank you for your message!", "email_notification": true, "redirect_url": "/thank-you"}',
       1,
-      0,
     ],
   );
 
-  // Insert email templates
+  // Insert form fields
   await runQuery(
     `
-      INSERT IGNORE INTO email_templates (name, subject, html_content, text_content, variables, created_by)
-      VALUES (?, ?, ?, ?, ?, ?)
+      ${insertIgnore} form_fields (form_id, field_type, field_name, field_label, field_placeholder, is_required, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
    `,
-    [
-      "contact-form-notification",
-      "New Contact Form Submission",
-      "<h2>New Contact Form Submission</h2><p><strong>Name:</strong> {{name}}</p><p><strong>Email:</strong> {{email}}</p><p><strong>Subject:</strong> {{subject}}</p><p><strong>Message:</strong></p><p>{{message}}</p><hr><p><small>Submitted on {{date}} from {{ip}}</small></p>",
-      "New Contact Form Submission\n\nName: {{name}}\nEmail: {{email}}\nSubject: {{subject}}\nMessage: {{message}}\n\nSubmitted on {{date}} from {{ip}}",
-      '["name", "email", "subject", "message", "date", "ip"]',
-      1,
-    ],
+    [1, "text", "name", "Full Name", "Enter your name", 1, 0],
+  );
+
+  await runQuery(
+    `
+      ${insertIgnore} form_fields (form_id, field_type, field_name, field_label, field_placeholder, is_required, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+   `,
+    [1, "email", "email", "Email Address", "Enter your email", 1, 1],
   );
 }
 
 export async function runQuery(query, params = []) {
   try {
-    const [result] = await pool.execute(query, params);
-    return result;
+    if (useMySQL) {
+      const [result] = await pool.execute(query, params);
+      return result;
+    } else {
+      return await runSQLiteQuery(query, params);
+    }
   } catch (error) {
     console.error("Database query error:", error);
     throw error;
@@ -322,8 +354,20 @@ export async function runQuery(query, params = []) {
 
 export async function getQuery(query, params = []) {
   try {
-    const [rows] = await pool.execute(query, params);
-    return rows[0] || null;
+    if (useMySQL) {
+      const [rows] = await pool.execute(query, params);
+      return rows[0] || null;
+    } else {
+      return new Promise((resolve, reject) => {
+        db.get(query, params, (err, row) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(row || null);
+          }
+        });
+      });
+    }
   } catch (error) {
     console.error("Database query error:", error);
     throw error;
@@ -332,8 +376,20 @@ export async function getQuery(query, params = []) {
 
 export async function allQuery(query, params = []) {
   try {
-    const [rows] = await pool.execute(query, params);
-    return rows;
+    if (useMySQL) {
+      const [rows] = await pool.execute(query, params);
+      return rows;
+    } else {
+      return new Promise((resolve, reject) => {
+        db.all(query, params, (err, rows) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(rows || []);
+          }
+        });
+      });
+    }
   } catch (error) {
     console.error("Database query error:", error);
     throw error;
