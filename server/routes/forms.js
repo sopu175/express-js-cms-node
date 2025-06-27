@@ -364,6 +364,38 @@ router.post('/:id/submit', async (req, res, next) => {
 
     const settings = form.settings ? JSON.parse(form.settings) : {};
     
+    // Send email notification if configured
+    if (settings.email_notification && settings.email_template_id) {
+      try {
+        const emailModule = await import('./email.js');
+        
+        // Prepare email variables
+        const emailVariables = {
+          ...submission_data,
+          date: new Date().toLocaleString(),
+          ip: req.ip,
+          form_name: form.title
+        };
+
+        // Send notification email
+        await fetch(`${req.protocol}://${req.get('host')}/api/email/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': req.headers.authorization || ''
+          },
+          body: JSON.stringify({
+            to: settings.notification_email || 'admin@example.com',
+            template_id: settings.email_template_id,
+            variables: emailVariables
+          })
+        });
+      } catch (emailError) {
+        console.error('Failed to send email notification:', emailError);
+        // Don't fail the form submission if email fails
+      }
+    }
+    
     res.json({ 
       message: settings.submit_message || 'Form submitted successfully!',
       redirect_url: settings.redirect_url || null
@@ -409,6 +441,66 @@ router.get('/:id/submissions', authMiddleware, requireRole(['admin', 'editor']),
         total,
         pages: Math.ceil(total / limit)
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Bulk update form fields
+router.put('/:id/fields', authMiddleware, requireRole(['admin', 'editor']), async (req, res, next) => {
+  try {
+    const form = await getQuery('SELECT * FROM forms WHERE id = ?', [req.params.id]);
+    if (!form) {
+      return res.status(404).json({ error: 'Form not found' });
+    }
+
+    const { fields } = req.body;
+    if (!Array.isArray(fields)) {
+      return res.status(400).json({ error: 'Fields must be an array' });
+    }
+
+    // Delete existing fields
+    await runQuery('DELETE FROM form_fields WHERE form_id = ?', [req.params.id]);
+
+    // Insert new fields
+    for (let i = 0; i < fields.length; i++) {
+      const field = fields[i];
+      const { error, value } = formFieldSchema.validate({ ...field, sort_order: i });
+      if (error) {
+        throw new Error(`Field ${i + 1}: ${error.details[0].message}`);
+      }
+
+      await runQuery(`
+        INSERT INTO form_fields (form_id, field_type, field_name, field_label, field_placeholder, field_options, is_required, sort_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        req.params.id,
+        value.field_type,
+        value.field_name,
+        value.field_label,
+        value.field_placeholder || '',
+        JSON.stringify(value.field_options || []),
+        value.is_required ? 1 : 0,
+        value.sort_order
+      ]);
+    }
+
+    // Get updated fields
+    const updatedFields = await allQuery(`
+      SELECT * FROM form_fields 
+      WHERE form_id = ? 
+      ORDER BY sort_order ASC
+    `, [req.params.id]);
+
+    const parsedFields = updatedFields.map(field => ({
+      ...field,
+      field_options: field.field_options ? JSON.parse(field.field_options) : []
+    }));
+
+    res.json({ 
+      message: 'Form fields updated successfully',
+      fields: parsedFields 
     });
   } catch (error) {
     next(error);

@@ -197,6 +197,63 @@ async function createTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     )`,
+
+      // Email configuration table
+      `CREATE TABLE IF NOT EXISTS email_config (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      smtp_host TEXT NOT NULL,
+      smtp_port INTEGER NOT NULL,
+      smtp_secure BOOLEAN DEFAULT 0,
+      smtp_user TEXT NOT NULL,
+      smtp_password TEXT NOT NULL,
+      from_name TEXT NOT NULL,
+      from_email TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
+
+      // Email templates table
+      `CREATE TABLE IF NOT EXISTS email_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      html_content TEXT NOT NULL,
+      text_content TEXT,
+      variables TEXT, -- JSON array of variable names
+      created_by INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users (id)
+    )`,
+
+      // Email logs table
+      `CREATE TABLE IF NOT EXISTS email_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recipient TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      template_id INTEGER,
+      status TEXT NOT NULL CHECK (status IN ('sent', 'failed')),
+      message_id TEXT,
+      error_message TEXT,
+      sent_by INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (template_id) REFERENCES email_templates (id),
+      FOREIGN KEY (sent_by) REFERENCES users (id)
+    )`,
+
+      // Content module assignments table
+      `CREATE TABLE IF NOT EXISTS content_module_assignments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      content_id INTEGER NOT NULL,
+      module_id INTEGER NOT NULL,
+      position TEXT NOT NULL, -- 'header', 'sidebar', 'footer', 'content'
+      sort_order INTEGER DEFAULT 0,
+      settings TEXT, -- JSON string for assignment-specific settings
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (content_id) REFERENCES content (id) ON DELETE CASCADE,
+      FOREIGN KEY (module_id) REFERENCES modules (id) ON DELETE CASCADE,
+      UNIQUE(content_id, module_id, position)
+    )`
    ];
 
    const indexes = [
@@ -213,6 +270,9 @@ async function createTables() {
       "CREATE INDEX IF NOT EXISTS idx_content_blocks_content ON content_blocks(content_id)",
       "CREATE INDEX IF NOT EXISTS idx_form_fields_form ON form_fields(form_id)",
       "CREATE INDEX IF NOT EXISTS idx_form_submissions_form ON form_submissions(form_id)",
+      "CREATE INDEX IF NOT EXISTS idx_email_logs_status ON email_logs(status)",
+      "CREATE INDEX IF NOT EXISTS idx_content_module_assignments_content ON content_module_assignments(content_id)",
+      "CREATE INDEX IF NOT EXISTS idx_content_module_assignments_module ON content_module_assignments(module_id)"
    ];
 
    return new Promise((resolve, reject) => {
@@ -231,6 +291,7 @@ async function createTables() {
             // Create default admin user and sample data
             await createDefaultUser();
             await createSampleData();
+            await createEmailTemplates();
 
             resolve();
          } catch (error) {
@@ -339,10 +400,84 @@ async function createSampleData() {
             submit_message: "Thank you for your message!",
             email_notification: true,
             redirect_url: "/thank-you",
+            email_template_id: 1
          }),
          1,
       ]
    );
+
+   // Sample form fields
+   const formFields = [
+      { type: 'text', name: 'name', label: 'Full Name', placeholder: 'Enter your name', required: 1, order: 0 },
+      { type: 'email', name: 'email', label: 'Email Address', placeholder: 'Enter your email', required: 1, order: 1 },
+      { type: 'select', name: 'subject', label: 'Subject', options: JSON.stringify(['General Inquiry', 'Support', 'Business']), required: 1, order: 2 },
+      { type: 'textarea', name: 'message', label: 'Message', placeholder: 'Enter your message', required: 1, order: 3 }
+   ];
+
+   for (const field of formFields) {
+      await runQuery(`
+        INSERT OR IGNORE INTO form_fields (form_id, field_type, field_name, field_label, field_placeholder, field_options, is_required, sort_order)
+        VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+      `, [field.type, field.name, field.label, field.placeholder || '', field.options || '', field.required, field.order]);
+   }
+}
+
+async function createEmailTemplates() {
+   const templates = [
+      {
+         name: 'contact-form-notification',
+         subject: 'New Contact Form Submission',
+         html_content: `
+           <h2>New Contact Form Submission</h2>
+           <p><strong>Name:</strong> {{name}}</p>
+           <p><strong>Email:</strong> {{email}}</p>
+           <p><strong>Subject:</strong> {{subject}}</p>
+           <p><strong>Message:</strong></p>
+           <p>{{message}}</p>
+           <hr>
+           <p><small>Submitted on {{date}} from {{ip}}</small></p>
+         `,
+         text_content: `
+           New Contact Form Submission
+           
+           Name: {{name}}
+           Email: {{email}}
+           Subject: {{subject}}
+           Message: {{message}}
+           
+           Submitted on {{date}} from {{ip}}
+         `,
+         variables: JSON.stringify(['name', 'email', 'subject', 'message', 'date', 'ip'])
+      },
+      {
+         name: 'welcome-email',
+         subject: 'Welcome to {{site_name}}',
+         html_content: `
+           <h1>Welcome to {{site_name}}!</h1>
+           <p>Hi {{name}},</p>
+           <p>Thank you for joining us. We're excited to have you on board!</p>
+           <p>Best regards,<br>The {{site_name}} Team</p>
+         `,
+         text_content: `
+           Welcome to {{site_name}}!
+           
+           Hi {{name}},
+           
+           Thank you for joining us. We're excited to have you on board!
+           
+           Best regards,
+           The {{site_name}} Team
+         `,
+         variables: JSON.stringify(['name', 'site_name'])
+      }
+   ];
+
+   for (const template of templates) {
+      await runQuery(`
+        INSERT OR IGNORE INTO email_templates (name, subject, html_content, text_content, variables, created_by)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [template.name, template.subject, template.html_content, template.text_content, template.variables, 1]);
+   }
 }
 
 function runQuery(query, params = []) {
