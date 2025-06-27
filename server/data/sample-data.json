@@ -1,0 +1,360 @@
+{
+  "banners": [
+    {
+      "id": 1,
+      "title": "Inspiring Innovation",
+      "subtitle": "Building the future with cutting-edge technology",
+      "description": "Join us on our mission to create innovative solutions that make a difference in the world.",
+      "background_image": "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg",
+      "background_color": "#1a1a1a",
+      "text_color": "#ffffff",
+      "buttons": [
+        {
+          "text": "Get Started",
+          "url": "/get-started",
+          "style": "primary"
+        },
+        {
+          "text": "Learn More",
+          "url": "/about",
+          "style": "secondary"
+        }
+      ],
+      "overlay_opacity": 0.5,
+      "alignment": "center"
+    }
+  ],
+  "sliders": [
+    {
+      "id": 1,
+      "title": "Featured Content",
+      "slides": [
+        {
+          "id": 1,
+          "title": "Title of The First Post",
+          "subtitle": "Subtitle: A short story of the post goes here as subtitle",
+          "description": "Text: This content will have images and content in a nice way. This is the first content and more content can be added.",
+          "image": "https://images.pexels.com/photos/3184298/pexels-photo-3184298.jpeg",
+          "link": "/post/first-post",
+          "date": "2024-01-15"
+        },
+        {
+          "id": 2,
+          "title": "Title of The Second Post",
+          "subtitle": "Subtitle: A short story of the post goes here as subtitle",
+          "description": "Text: This content will have images and content in a nice way. This is the second content and more content can be added.",
+          "image": "https://images.pexels.com/photos/3184299/pexels-photo-3184299.jpeg",
+          "link": "/post/second-post",
+          "date": "2024-01-16"
+        },
+        {
+          "id": 3,
+          "title": "Title of The Third Post",
+          "subtitle": "Subtitle: A short story of the post goes here as subtitle",
+          "description": "Text: This content will have images and content in a nice way. This is the third content and more content can be added.",
+          "image": "https://images.pexels.com/photos/3184300/pexels-photo-3184300.jpeg",
+          "link": "/post/third-post",
+          "date": "2024-01-17"
+        }
+      ],
+      "settings": {
+        "autoplay": true,
+        "duration": 5000,
+        "transition": "slide",
+        "show_arrows": true,
+        "show_dots": true
+      }
+    }
+  ],
+  "menus": [
+    {
+      "id": 1,
+      "name": "main-menu",
+      "title": "Main Navigation",
+      "items": [
+        {
+          "id": 1,
+          "label": "Home",
+          "url": "/",
+          "icon": "home",
+          "children": []
+        },
+        {
+          "id": 2,
+          "label": "About",
+          "url": "/about",
+          "icon": "info",
+          "children": [
+            {
+              "id": 21,
+              "label": "Our Story",
+              "url": "/about/story"
+            },
+            {
+              "id": 22,
+              "label": "Team",
+              "url": "/about/team"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "label": "Services",
+          "url": "/services",
+          "icon": "briefcase",
+          "children": [
+            {
+              "id": 31,
+              "label": "Web Development",
+              "url": "/services/web-development"
+            },
+            {
+              "id": 32,
+              "label": "Mobile Apps",
+              "url": "/services/mobile-apps"
+            },
+            {
+              "id": 33,
+              "label": "Consulting",
+              "url": "/services/consulting"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "label": "Blog",
+          "url": "/blog",
+          "icon": "book"
+        },
+        {
+          "id": 5,
+          "label": "Contact",
+          "url": "/contact",
+          "icon": "mail"
+        }
+      ],
+      "settings": {
+        "layout": "horizontal",
+        "dropdown": true,
+        "mobile_responsive": true,
+        "sticky": true
+      }
+    }
+  ],
+  "galleries": [
+    {
+      "id": 1,
+      "title": "Project Gallery",
+      "description": "Showcase of our latest projects and work",
+      "images": [
+        {
+          "id": 1,
+          "title": "Project Alpha",
+          "description": "A comprehensive web application for business management",
+          "url": "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg",
+          "thumbnail": "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?w=400",
+          "alt": "Project Alpha Screenshot",
+          "category": "web-development"
+        },
+        {
+          "id": 2,
+          "title": "Mobile App Beta",
+          "description": "Cross-platform mobile application for e-commerce",
+          "url": "https://images.pexels.com/photos/3184298/pexels-photo-3184298.jpeg",
+          "thumbnail": "https://images.pexels.com/photos/3184298/pexels-photo-3184298.jpeg?w=400",
+          "alt": "Mobile App Beta Screenshot",
+          "category": "mobile-development"
+        },
+        {
+          "id": 3,
+          "title": "Dashboard Gamma",
+          "description": "Analytics dashboard for data visualization",
+          "url": "https://images.pexels.com/photos/3184299/pexels-photo-3184299.jpeg",
+          "thumbnail": "https://images.pexels.com/photos/3184299/pexels-photo-3184299.jpeg?w=400",
+          "alt": "Dashboard Gamma Screenshot",
+          "category": "data-visualization"
+        }
+      ],
+      "settings": {
+        "columns": 3,
+        "lightbox": true,
+        "lazy_load": true,
+        "show_captions": true,
+        "filter_categories": true
+      }
+    }
+  ],
+  "forms": [
+    {
+      "id": 1,
+      "name": "contact-form",
+      "title": "Contact Us",
+      "description": "Get in touch with our team",
+      "fields": [
+        {
+          "id": 1,
+          "type": "text",
+          "name": "name",
+          "label": "Full Name",
+          "placeholder": "Enter your full name",
+          "required": true,
+          "validation": {
+            "min_length": 2,
+            "max_length": 100
+          }
+        },
+        {
+          "id": 2,
+          "type": "email",
+          "name": "email",
+          "label": "Email Address",
+          "placeholder": "Enter your email",
+          "required": true,
+          "validation": {
+            "email": true
+          }
+        },
+        {
+          "id": 3,
+          "type": "select",
+          "name": "subject",
+          "label": "Subject",
+          "required": true,
+          "options": [
+            "General Inquiry",
+            "Technical Support",
+            "Business Partnership",
+            "Other"
+          ]
+        },
+        {
+          "id": 4,
+          "type": "textarea",
+          "name": "message",
+          "label": "Message",
+          "placeholder": "Enter your message",
+          "required": true,
+          "validation": {
+            "min_length": 10,
+            "max_length": 1000
+          }
+        },
+        {
+          "id": 5,
+          "type": "checkbox",
+          "name": "newsletter",
+          "label": "Subscribe to our newsletter",
+          "required": false
+        }
+      ],
+      "settings": {
+        "submit_message": "Thank you for your message! We'll get back to you soon.",
+        "email_notification": true,
+        "redirect_url": "/thank-you",
+        "spam_protection": true
+      }
+    }
+  ],
+  "tables": [
+    {
+      "id": 1,
+      "title": "Pricing Plans",
+      "description": "Compare our different pricing options",
+      "headers": [
+        "Feature",
+        "Basic",
+        "Pro",
+        "Enterprise"
+      ],
+      "rows": [
+        ["Users", "Up to 5", "Up to 25", "Unlimited"],
+        ["Storage", "10 GB", "100 GB", "1 TB"],
+        ["Support", "Email", "Email + Chat", "24/7 Phone"],
+        ["API Access", "Limited", "Full", "Full + Priority"],
+        ["Price", "$9/month", "$29/month", "$99/month"]
+      ],
+      "settings": {
+        "striped": true,
+        "bordered": true,
+        "responsive": true,
+        "sortable": false
+      }
+    }
+  ],
+  "lists": [
+    {
+      "id": 1,
+      "title": "Our Services",
+      "type": "unordered",
+      "items": [
+        {
+          "id": 1,
+          "text": "Custom Web Development",
+          "description": "Tailored web solutions for your business needs",
+          "icon": "code",
+          "link": "/services/web-development"
+        },
+        {
+          "id": 2,
+          "text": "Mobile App Development",
+          "description": "Native and cross-platform mobile applications",
+          "icon": "smartphone",
+          "link": "/services/mobile-development"
+        },
+        {
+          "id": 3,
+          "text": "UI/UX Design",
+          "description": "User-centered design for optimal experience",
+          "icon": "palette",
+          "link": "/services/design"
+        },
+        {
+          "id": 4,
+          "text": "Digital Marketing",
+          "description": "Comprehensive online marketing strategies",
+          "icon": "megaphone",
+          "link": "/services/marketing"
+        }
+      ],
+      "settings": {
+        "show_icons": true,
+        "show_descriptions": true,
+        "clickable": true
+      }
+    }
+  ],
+  "content_pages": [
+    {
+      "id": 1,
+      "title": "About Us",
+      "slug": "about",
+      "sections": [
+        {
+          "id": 1,
+          "type": "banner",
+          "data": {
+            "title": "About Our Company",
+            "subtitle": "Innovation at its finest",
+            "background_image": "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg"
+          }
+        },
+        {
+          "id": 2,
+          "type": "text",
+          "data": {
+            "title": "Our Story",
+            "content": "<p>Founded in 2020, we have been at the forefront of technological innovation...</p>"
+          }
+        },
+        {
+          "id": 3,
+          "type": "gallery",
+          "data": {
+            "title": "Our Team",
+            "gallery_id": 1
+          }
+        }
+      ]
+    }
+  ]
+}

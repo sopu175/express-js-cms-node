@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* editor css */
+.ql-toolbar.ql-snow {
+   border: 1px solid white !important;
+}
+.ql-snow .ql-picker.ql-expanded .ql-picker-label {
+   color: #fff !important;
+   z-index: 2;
+}
+.ql-toolbar.ql-snow .ql-picker.ql-expanded .ql-picker-label {
+   border-color: #fff !important;
+}
+.ql-snow .ql-stroke {
+   stroke: white !important;
+}
+.ql-snow .ql-picker.ql-header .ql-picker-label::before,
+.ql-snow .ql-picker.ql-header .ql-picker-item::before {
+   color: white !important;
+}
+.ql-editor {
+   min-height: 280px;
+}
