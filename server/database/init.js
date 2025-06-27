@@ -195,6 +195,15 @@ async function createSQLiteTables() {
          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
          FOREIGN KEY (form_id) REFERENCES forms (id) ON DELETE CASCADE
       )`,
+
+    `CREATE TABLE IF NOT EXISTS sessions (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         user_id INTEGER NOT NULL,
+         refresh_token TEXT NOT NULL,
+         expires_at DATETIME NOT NULL,
+         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      )`,
   ];
 
   for (const query of tables) {
