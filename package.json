@@ -13,7 +13,11 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "setup:mysql": "node setup-mysql.js",
-    "setup:db": "node setup-mysql.js"
+    "setup:db": "node setup-mysql.js",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f mysql",
+    "docker:restart": "docker-compose restart mysql"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.15",
