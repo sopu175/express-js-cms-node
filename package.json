@@ -11,7 +11,13 @@
     "build:server": "node server/index.js",
     "start": "node server/index.js",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "setup:mysql": "node setup-mysql.js",
+    "setup:db": "node setup-mysql.js",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f mysql",
+    "docker:restart": "docker-compose restart mysql"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.15",
@@ -28,6 +34,7 @@
     "lucide-react": "^0.344.0",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.6.5",
     "next": "^15.3.4",
     "nodemailer": "^6.9.4",
     "react": "^18.3.1",
